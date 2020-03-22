@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat</title>
+</head>
+<body>
+  <video id="video" width="320" height="240" muted="muted"></video>
+  <video id="video2" width="320" height="240" muted="muted"></video>
+  <script type="text/javascript">
+    // media
+    const videoSettings = {
+      width: 320,
+      height: 240,
+    };
+    const mediaMimeType = 'video/webm;codecs=opus';
+    let video = null;
+    let recordSettings = {};
+    let mediaRecorder = null;
+    let mediaRecorderInterval = 5000;
+    // ws
+    const wsAddress = 'ws://localhost:9666/ws';
+    let wsocket = null;
+
+    // PLAYER
+    let video2 = null;
+    let playFlag = false;
+    const mediaSource = new MediaSource();
+    mediaSource.addEventListener('sourceopen', (e) => {
+      mediaSource.duration = 5;
+      var mediaSourceBuffer = mediaSource.addSourceBuffer(mediaMimeType);
+      console.log('supported', MediaSource.isTypeSupported(mediaMimeType));
+      playMedia(mediaSourceBuffer);
+      video2.play();
+    });
+    let mediaCache = [];
+    const playMedia = (mediaSourceBuffer) => {
+      setTimeout(() => {
+        console.log('setTimeout check');
+        if(mediaCache.length > 0) {
+          console.log('play', mediaCache.length);
+          mediaSourceBuffer.appendBuffer(mediaCache[0])
+          playMedia(mediaSourceBuffer);
+        } else {
+          playMedia(mediaSourceBuffer);
+        }
+      }, mediaRecorderInterval);
+    }
+    /* STUPID
+    const playMedia = (mediaSourceBuffer) => {
+      if(mediaCache.length > 1 && video2.paused) {
+        const mediaBlob = new Blob(mediaCache, {type: mediaMimeType});
+        const url = URL.createObjectURL(mediaBlob);
+        //video2.pause();
+        const duration = mediaCache.length * .5;
+        const currentTime = duration - mediaRecorderInterval/1000;
+        video2.src = url;
+        video2.onloadeddata = () => {
+          video2.currentTime = currentTime;
+          video2.play(currentTime);
+        };
+        console.log(url, currentTime, duration, video2.readyState);
+        video2.duration = duration;
+      }
+    };*/
+
+    /* MEDIA */
+    const handleMediaDataAvailable = (e) => {
+      if (e.data.size > 0) {
+        // send to websocket
+        // media player test
+        /* STUPID
+        mediaCache.push(e.data);
+        playMedia();*/
+        e.data.arrayBuffer().then((a) => {
+          if (wsocket && wsocket.readyState == wsocket.OPEN) {
+            const data = new Uint8Array(a);
+            wsocket.send(data);
+            mediaCache.push(e.data);
+            //mediaCache.push(data);
+          }
+        });
+      } else {
+        console.log(e);
+      }
+    };
+
+    const handleMediaGetUser = (stream) => {
+      console.log(stream);
+      video.srcObject = stream;
+      let options = {
+        mimeType : mediaMimeType,
+      }
+      mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder.ondataavailable = handleMediaDataAvailable
+      mediaRecorder.start(mediaRecorderInterval);
+      video.play();
+    };
+
+    const handleEnumerateMediaDevices = (devices) => {
+      console.log(devices);
+      devices.forEach((device) => {
+        if(device.kind == 'audioinput') {
+          recordSettings.audio = true;
+        } else if (device.kind == 'videoinput') {
+          recordSettings.video = videoSettings;
+        }
+      });
+      navigator.mediaDevices.getUserMedia(recordSettings).then(handleMediaGetUser);
+    };
+
+    /* WebSocket */
+    const handleWSOpen = (e) => {
+      console.log(e);
+    }
+
+    const handleWSMessage = (e) => {
+      console.log(e);
+    }
+
+    const handleWSClose = (e) => {
+      console.log(e, e.wasClean);
+    }
+    const handleWSError = (e) => {
+      console.log(e);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('siema',  window.URL.createObjectURL);
+      video = document.getElementById('video');
+      video2 = document.getElementById('video2');
+      if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.enumerateDevices().then(handleEnumerateMediaDevices);
+      }
+      wsocket = new WebSocket(wsAddress);
+      wsocket.bufferType = "arraybuffer";
+      wsocket.onopen = handleWSOpen;
+      wsocket.onmessage = handleWSMessage;
+      wsocket.onclose = handleWSClose;
+      wsocket.onerror = handleWSError;
+      video2.src = window.URL.createObjectURL(mediaSource);
+    });
+  </script>
+</body>
+</html>

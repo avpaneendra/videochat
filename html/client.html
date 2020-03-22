@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Client</title>
+</head>
+<body>
+  <h1>Client</h1>
+  <video id="video" width="320" height="240" muted="muted"></video>
+  <script type="text/javascript">
+    // media
+    let video = null;
+    const mediaMimeType = 'video/webm; codecs=opus';
+    const mediaCache = [];
+    // ws
+    const wsAddress = 'ws://localhost:9666/ws';
+    let wsocket = null;
+
+    const playMedia = () => {
+      if(mediaCache.length > 0) {
+        const b = new Blob([mediaCache.unshift()], { 'type' : 'video/webm; codecs=opus' });
+        const url = window.URL.createObjectURL(b);
+        video.src = url;
+        video.play();
+      }
+    };
+
+    /* WebSocket */
+    const handleWSOpen = (e) => {
+      console.log(e);
+    }
+
+    const handleWSMessage = (e) => {
+      console.log('message', e);
+      mediaCache.push(e.data);
+      if(video.paused) {
+        playMedia();
+      }
+    }
+
+    const handleWSClose = (e) => {
+      console.log(e, e.wasClean);
+    }
+    const handleWSError = (e) => {
+      console.log(e);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('siema')
+      video = document.getElementById('video');
+      wsocket = new WebSocket(wsAddress);
+      wsocket.bufferType = "arraybuffer";
+      wsocket.onopen = handleWSOpen;
+      wsocket.onmessage = handleWSMessage;
+      wsocket.onclose = handleWSClose;
+      wsocket.onerror = handleWSError;
+      video.onended = playMedia;
+      playMedia();
+    });
+  </script>
+</body>
+</html>
