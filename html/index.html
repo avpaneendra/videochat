@@ -24,11 +24,10 @@
 
     // PLAYER
     let video2 = null;
-    let playFlag = false;
     //https://stackoverflow.com/questions/41739837/all-mime-types-supported-by-mediarecorder-in-firefox-and-chrome
     const mediaSource = new MediaSource();
     mediaSource.addEventListener('sourceopen', (e) => {
-      mediaSource.duration = 5;
+      mediaSource.duration = 999999;
       var mediaSourceBuffer = mediaSource.addSourceBuffer(mediaMimeType);
       console.log('supported', MediaSource.isTypeSupported(mediaMimeType));
       playMedia(mediaSourceBuffer);
@@ -44,6 +43,10 @@
             mediaSourceBuffer.appendBuffer(mediaCache[mediaCacheIndex]);
             mediaCacheIndex += 1;
           }
+          if(mediaCache.length > 50) {
+            mediaCache.splice(0, 50);
+            mediaCacheIndex -= 50;
+          }
           playMedia(mediaSourceBuffer);
         } else {
           playMedia(mediaSourceBuffer);
@@ -56,14 +59,12 @@
     const handleMediaDataAvailable = (e) => {
       if (e.data.size > 0) {
         // send to websocket
-        // media player test
-        //mediaCache.push(e.data);
         e.data.arrayBuffer().then((a) => {
           if (wsocket && wsocket.readyState == wsocket.OPEN) {
             const data = new Uint8Array(a);
             wsocket.send(data);
+            // media player test
             mediaCache.push(data);
-            //mediaCache.push(data);
           }
         });
       } else {
