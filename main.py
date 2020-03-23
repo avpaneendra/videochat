@@ -20,6 +20,8 @@ class ClientHandler(tornado.web.RequestHandler):
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     CLIENTS = set()
+    def initialize(self):
+        self.media_buffer = []
 
     def open(self):
         LOG.debug('open %s', id(self))
@@ -28,7 +30,6 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, message):
         for client in self.CLIENTS:
             if client != self:
-                LOG.debug('message %s', id(client))
                 client.write_message(message, binary=True)
 
     def on_close(self):

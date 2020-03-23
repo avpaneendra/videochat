@@ -10,20 +10,43 @@
   <script type="text/javascript">
     // media
     let video = null;
-    const mediaMimeType = 'video/webm; codecs=opus';
-    const mediaCache = [];
+    const mediaMimeType = 'video/webm;codecs=vp8,opus';
+    let mediaRecorderInterval = 300;
     // ws
     const wsAddress = 'ws://localhost:9666/ws';
     let wsocket = null;
 
-    const playMedia = () => {
-      if(mediaCache.length > 0) {
-        const b = new Blob([mediaCache.unshift()], { 'type' : 'video/webm; codecs=opus' });
-        const url = window.URL.createObjectURL(b);
-        video.src = url;
-        video.play();
-      }
-    };
+    // player
+    //https://stackoverflow.com/questions/41739837/all-mime-types-supported-by-mediarecorder-in-firefox-and-chrome
+    const mediaSource = new MediaSource();
+    mediaSource.addEventListener('sourceopen', (e) => {
+      mediaSource.duration = 999999;
+      var mediaSourceBuffer = mediaSource.addSourceBuffer(mediaMimeType);
+      console.log('supported', MediaSource.isTypeSupported(mediaMimeType));
+      playMedia(mediaSourceBuffer);
+      video.play();
+    });
+    let mediaCache = [];
+    let mediaCacheIndex = 0;
+    const playMedia = (mediaSourceBuffer) => {
+      setTimeout(() => {
+        if(mediaCache.length > 0) {
+          console.log('play', mediaCache.length, mediaCacheIndex);
+          if(mediaCacheIndex < mediaCache.length) {
+            mediaSourceBuffer.appendBuffer(mediaCache[mediaCacheIndex]);
+            mediaCacheIndex += 1;
+          }
+          if(mediaCache.length > 50 && mediaCacheIndex > 50) {
+            mediaCache.splice(0, 50);
+            mediaCacheIndex -= 50;
+          }
+          playMedia(mediaSourceBuffer);
+        } else {
+          playMedia(mediaSourceBuffer);
+        }
+      }, mediaRecorderInterval);
+      video.play();
+    }
 
     /* WebSocket */
     const handleWSOpen = (e) => {
@@ -32,10 +55,10 @@
 
     const handleWSMessage = (e) => {
       console.log('message', e);
-      mediaCache.push(e.data);
-      if(video.paused) {
-        playMedia();
-      }
+      e.data.arrayBuffer().then((a) => {
+        const data = new Uint8Array(a);
+        mediaCache.push(data);
+      });
     }
 
     const handleWSClose = (e) => {
@@ -48,14 +71,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       console.log('siema')
       video = document.getElementById('video');
+      video.src = window.URL.createObjectURL(mediaSource);
       wsocket = new WebSocket(wsAddress);
       wsocket.bufferType = "arraybuffer";
       wsocket.onopen = handleWSOpen;
       wsocket.onmessage = handleWSMessage;
       wsocket.onclose = handleWSClose;
       wsocket.onerror = handleWSError;
-      video.onended = playMedia;
-      playMedia();
     });
   </script>
 </body>

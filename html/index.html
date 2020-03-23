@@ -17,7 +17,7 @@
     let video = null;
     let recordSettings = {};
     let mediaRecorder = null;
-    let mediaRecorderInterval = 100;
+    let mediaRecorderInterval = 300;
     // ws
     const wsAddress = 'ws://localhost:9666/ws';
     let wsocket = null;
@@ -43,7 +43,7 @@
             mediaSourceBuffer.appendBuffer(mediaCache[mediaCacheIndex]);
             mediaCacheIndex += 1;
           }
-          if(mediaCache.length > 50) {
+          if(mediaCache.length > 50 && mediaCacheIndex > 50) {
             mediaCache.splice(0, 50);
             mediaCacheIndex -= 50;
           }
