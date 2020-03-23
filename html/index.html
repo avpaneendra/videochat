@@ -17,7 +17,7 @@
     let video = null;
     let recordSettings = {};
     let mediaRecorder = null;
-    let mediaRecorderInterval = 250;
+    let mediaRecorderInterval = 100;
     // ws
     const wsAddress = 'ws://localhost:9666/ws';
     let wsocket = null;
@@ -38,15 +38,10 @@
     let mediaCacheIndex = 0;
     const playMedia = (mediaSourceBuffer) => {
       setTimeout(() => {
-        console.log('setTimeout check');
         if(mediaCache.length > 0) {
           console.log('play', mediaCache.length, mediaCacheIndex);
           if(mediaCacheIndex < mediaCache.length) {
-            mediaCache[mediaCacheIndex].arrayBuffer().then((a) => {
-              if(!mediaSourceBuffer.updating) {
-                mediaSourceBuffer.appendBuffer(a);
-              }
-            });
+            mediaSourceBuffer.appendBuffer(mediaCache[mediaCacheIndex]);
             mediaCacheIndex += 1;
           }
           playMedia(mediaSourceBuffer);
@@ -56,37 +51,18 @@
       }, mediaRecorderInterval);
       video2.play();
     }
-    /* STUPID
-    const playMedia = (mediaSourceBuffer) => {
-      if(mediaCache.length > 1 && video2.paused) {
-        const mediaBlob = new Blob(mediaCache, {type: mediaMimeType});
-        const url = URL.createObjectURL(mediaBlob);
-        //video2.pause();
-        const duration = mediaCache.length * .5;
-        const currentTime = duration - mediaRecorderInterval/1000;
-        video2.src = url;
-        video2.onloadeddata = () => {
-          video2.currentTime = currentTime;
-          video2.play(currentTime);
-        };
-        console.log(url, currentTime, duration, video2.readyState);
-        video2.duration = duration;
-      }
-    };*/
 
     /* MEDIA */
     const handleMediaDataAvailable = (e) => {
       if (e.data.size > 0) {
         // send to websocket
         // media player test
-        /* STUPID
-        mediaCache.push(e.data);
-        playMedia();*/
-        mediaCache.push(e.data);
+        //mediaCache.push(e.data);
         e.data.arrayBuffer().then((a) => {
           if (wsocket && wsocket.readyState == wsocket.OPEN) {
             const data = new Uint8Array(a);
             wsocket.send(data);
+            mediaCache.push(data);
             //mediaCache.push(data);
           }
         });
@@ -140,9 +116,6 @@
       console.log('siema',  window.URL.createObjectURL);
       video = document.getElementById('video');
       video2 = document.getElementById('video2');
-      video2.addEventListener('error', (e) => {
-        console.log(e);
-      });
       video2.crossOrigin = 'anonymous';
       if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.enumerateDevices().then(handleEnumerateMediaDevices);
