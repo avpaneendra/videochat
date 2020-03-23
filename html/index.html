@@ -13,11 +13,11 @@
       width: 320,
       height: 240,
     };
-    const mediaMimeType = 'video/webm;codecs=opus';
+    const mediaMimeType = 'video/webm;codecs=vp8,opus';
     let video = null;
     let recordSettings = {};
     let mediaRecorder = null;
-    let mediaRecorderInterval = 5000;
+    let mediaRecorderInterval = 250;
     // ws
     const wsAddress = 'ws://localhost:9666/ws';
     let wsocket = null;
@@ -25,6 +25,7 @@
     // PLAYER
     let video2 = null;
     let playFlag = false;
+    //https://stackoverflow.com/questions/41739837/all-mime-types-supported-by-mediarecorder-in-firefox-and-chrome
     const mediaSource = new MediaSource();
     mediaSource.addEventListener('sourceopen', (e) => {
       mediaSource.duration = 5;
@@ -34,17 +35,26 @@
       video2.play();
     });
     let mediaCache = [];
+    let mediaCacheIndex = 0;
     const playMedia = (mediaSourceBuffer) => {
       setTimeout(() => {
         console.log('setTimeout check');
         if(mediaCache.length > 0) {
-          console.log('play', mediaCache.length);
-          mediaSourceBuffer.appendBuffer(mediaCache[0])
+          console.log('play', mediaCache.length, mediaCacheIndex);
+          if(mediaCacheIndex < mediaCache.length) {
+            mediaCache[mediaCacheIndex].arrayBuffer().then((a) => {
+              if(!mediaSourceBuffer.updating) {
+                mediaSourceBuffer.appendBuffer(a);
+              }
+            });
+            mediaCacheIndex += 1;
+          }
           playMedia(mediaSourceBuffer);
         } else {
           playMedia(mediaSourceBuffer);
         }
       }, mediaRecorderInterval);
+      video2.play();
     }
     /* STUPID
     const playMedia = (mediaSourceBuffer) => {
@@ -72,11 +82,11 @@
         /* STUPID
         mediaCache.push(e.data);
         playMedia();*/
+        mediaCache.push(e.data);
         e.data.arrayBuffer().then((a) => {
           if (wsocket && wsocket.readyState == wsocket.OPEN) {
             const data = new Uint8Array(a);
             wsocket.send(data);
-            mediaCache.push(e.data);
             //mediaCache.push(data);
           }
         });
@@ -99,6 +109,7 @@
 
     const handleEnumerateMediaDevices = (devices) => {
       console.log(devices);
+      recordSettings.audio = false;
       devices.forEach((device) => {
         if(device.kind == 'audioinput') {
           recordSettings.audio = true;
@@ -129,6 +140,10 @@
       console.log('siema',  window.URL.createObjectURL);
       video = document.getElementById('video');
       video2 = document.getElementById('video2');
+      video2.addEventListener('error', (e) => {
+        console.log(e);
+      });
+      video2.crossOrigin = 'anonymous';
       if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.enumerateDevices().then(handleEnumerateMediaDevices);
       }
